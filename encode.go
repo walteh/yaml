@@ -119,6 +119,9 @@ func (e *encoder) marshal(tag string, in reflect.Value) {
 	case *Node:
 		e.nodev(in)
 		return
+	case MapSlice:
+		e.itemsv(tag, value)
+		return
 	case Node:
 		if !in.CanAddr() {
 			var n = reflect.New(in.Type()).Elem()
@@ -167,11 +170,6 @@ func (e *encoder) marshal(tag string, in reflect.Value) {
 	case reflect.Struct:
 		e.structv(tag, in)
 	case reflect.Slice, reflect.Array:
-		if in.Type() == mapItemType {
-			e.itemsv(tag, in)
-		} else {
-			e.slicev(tag, in)
-		}
 		e.slicev(tag, in)
 	case reflect.String:
 		e.stringv(tag, in)

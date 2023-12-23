@@ -16,9 +16,8 @@ type MapItem struct {
 	Value any
 }
 
-func (e *encoder) itemsv(tag string, in reflect.Value) {
+func (e *encoder) itemsv(tag string, slice MapSlice) {
 	e.mappingv(tag, func() {
-		slice := in.Convert(reflect.TypeOf([]MapItem{})).Interface().([]MapItem)
 		for _, item := range slice {
 			e.marshal("", reflect.ValueOf(item.Key))
 			e.marshal("", reflect.ValueOf(item.Value))

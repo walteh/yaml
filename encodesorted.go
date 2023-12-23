@@ -6,7 +6,7 @@ import "reflect"
 // https://github.com/go-yaml/yaml/blob/7649d4548cb53a614db133b2a8ac1f31859dda8c/encode.go
 
 var (
-	mapItemType = reflect.TypeOf(MapItem{})
+	mapItemType = reflect.TypeOf(MapSlice{})
 )
 
 type MapSlice []MapItem

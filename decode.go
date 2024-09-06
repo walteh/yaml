@@ -784,16 +784,38 @@ func (d *decoder) mapping(n *Node, out reflect.Value) (good bool) {
 	switch out.Kind() {
 	case reflect.Struct:
 		return d.mappingStruct(n, out)
+	case reflect.Slice:
+		return d.mappingSlice(n, out)
 	case reflect.Map:
 		// okay
 	case reflect.Interface:
-		iface := out
 		if isStringMap(n) {
-			out = reflect.MakeMap(d.stringMapType)
+			if d.stringMapType.Kind() == reflect.Map {
+				iface := out
+				out = reflect.MakeMap(d.stringMapType)
+				iface.Set(out)
+			} else {
+				slicev := reflect.New(d.stringMapType).Elem()
+				if !d.mappingSlice(n, slicev) {
+					return false
+				}
+				out.Set(slicev)
+				return true
+			}
 		} else {
-			out = reflect.MakeMap(d.generalMapType)
+			if d.generalMapType.Kind() == reflect.Map {
+				iface := out
+				out = reflect.MakeMap(d.generalMapType)
+				iface.Set(out)
+			} else {
+				slicev := reflect.New(d.generalMapType).Elem()
+				if !d.mappingSlice(n, slicev) {
+					return false
+				}
+				out.Set(slicev)
+				return true
+			}
 		}
-		iface.Set(out)
 	default:
 		d.terror(n, mapTag, out)
 		return false

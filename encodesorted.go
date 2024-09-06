@@ -3,6 +3,7 @@ package yaml
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 )
 
 // this is a direct copy of the v2 encoder
@@ -85,4 +86,45 @@ func (m *MapSlice) UnmarshalJSON(data []byte) error {
 		*m = kvp.ToMapSlice()
 	}
 	return err
+}
+
+// Helper function to sort specific sections of the YAML document
+func (me *MapSlice) SortKeys(keys ...string) {
+	for i := range *me {
+		mapItem := &(*me)[i]
+		// Check if the current key matches any of the provided keys
+		for _, key := range keys {
+			if mapItem.Key == key {
+				if valueNode, ok := mapItem.Value.(MapSlice); ok {
+					// Sort the map slice by keys
+					sorted := sortMapSlice(valueNode)
+					mapItem.Value = sorted
+				}
+			}
+		}
+	}
+}
+
+// Helper function to sort a yaml.MapSlice by its keys
+func sortMapSlice(m MapSlice) MapSlice {
+	// Create a slice to hold the keys
+	keys := make([]string, len(m))
+	for i, item := range m {
+		keys[i] = item.Key.(string)
+	}
+
+	// Sort the keys alphabetically
+	sort.Strings(keys)
+
+	// Create a new yaml.MapSlice to hold the sorted items
+	var sortedMap MapSlice
+	for _, key := range keys {
+		for _, item := range m {
+			if item.Key == key {
+				sortedMap = append(sortedMap, item)
+				break
+			}
+		}
+	}
+	return sortedMap
 }

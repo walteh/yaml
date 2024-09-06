@@ -2,6 +2,7 @@ package yaml
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sort"
 )
@@ -88,43 +89,92 @@ func (m *MapSlice) UnmarshalJSON(data []byte) error {
 	return err
 }
 
-// Helper function to sort specific sections of the YAML document
+// Helper function to sort specific sections of the YAML document by keys, including nested keys.
 func (me *MapSlice) SortKeys(keys ...string) {
 	for i := range *me {
 		mapItem := &(*me)[i]
 		// Check if the current key matches any of the provided keys
 		for _, key := range keys {
 			if mapItem.Key == key {
+				// Check if the value is already a MapSlice
 				if valueNode, ok := mapItem.Value.(MapSlice); ok {
 					// Sort the map slice by keys
 					sorted := sortMapSlice(valueNode)
 					mapItem.Value = sorted
+
+					// Recursively sort nested maps by keys if needed
+					sorted.SortKeys(keys...)
+				} else if node, ok := mapItem.Value.(*Node); ok {
+					// If it's a Node, try to convert to MapSlice
+					converted, err := nodeToMapSlice(node)
+					if err == nil {
+						// Sort the newly converted MapSlice by keys
+						sorted := sortMapSlice(converted)
+						mapItem.Value = sorted
+
+						// Recursively sort nested maps by keys if needed
+						sorted.SortKeys(keys...)
+					}
 				}
 			}
 		}
 	}
 }
 
-// Helper function to sort a yaml.MapSlice by its keys
+// Helper function to sort a MapSlice by its keys.
 func sortMapSlice(m MapSlice) MapSlice {
-	// Create a slice to hold the keys
-	keys := make([]string, len(m))
-	for i, item := range m {
-		keys[i] = item.Key.(string)
+	// Sort the MapSlice by key
+	sorted := make(MapSlice, len(m))
+	copy(sorted, m)
+
+	// Use standard Go sorting to order by key
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return sorted[i].Key.(string) < sorted[j].Key.(string)
+	})
+
+	return sorted
+}
+
+// nodeToMapSlice converts a *Node to a MapSlice, if the node is a mapping
+func nodeToMapSlice(node *Node) (MapSlice, error) {
+	if node.Kind != MappingNode {
+		return nil, fmt.Errorf("expected mapping node, got %v", node.Kind)
 	}
 
-	// Sort the keys alphabetically
-	sort.Strings(keys)
+	var mapSlice MapSlice
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		valueNode := node.Content[i+1]
 
-	// Create a new yaml.MapSlice to hold the sorted items
-	var sortedMap MapSlice
-	for _, key := range keys {
-		for _, item := range m {
-			if item.Key == key {
-				sortedMap = append(sortedMap, item)
-				break
-			}
+		if keyNode.Kind != ScalarNode {
+			return nil, fmt.Errorf("expected scalar key, got %v", keyNode.Kind)
 		}
+
+		// Recursively convert the value node
+		var value interface{}
+		switch valueNode.Kind {
+		case MappingNode:
+			converted, err := nodeToMapSlice(valueNode)
+			if err != nil {
+				return nil, err
+			}
+			value = converted
+		case ScalarNode:
+			value = valueNode.Value
+		case SequenceNode:
+			var seq []interface{}
+			for _, item := range valueNode.Content {
+				seq = append(seq, item.Value)
+			}
+			value = seq
+		default:
+			value = valueNode.Value
+		}
+
+		mapSlice = append(mapSlice, MapItem{
+			Key:   keyNode.Value,
+			Value: value,
+		})
 	}
-	return sortedMap
+	return mapSlice, nil
 }

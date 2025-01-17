@@ -241,6 +241,13 @@ func yaml_emitter_increase_indent(emitter *yaml_emitter_t, flow, indentless bool
 			// Everything else aligns to the chosen indentation.
 			emitter.indent = emitter.best_indent * ((emitter.indent + emitter.best_indent) / emitter.best_indent)
 		}
+	} else {
+		if emitter.states[len(emitter.states)-1] == yaml_EMIT_BLOCK_SEQUENCE_ITEM_STATE {
+			// Currently, we assume that indentless can be true for only block sequences
+			// and this case is the first item of a nested indentless block sequence,
+			// which means the item must be indented more.
+			emitter.indent += 2
+		}
 	}
 	return true
 }

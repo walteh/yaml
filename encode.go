@@ -29,13 +29,15 @@ import (
 )
 
 type encoder struct {
-	emitter         yaml_emitter_t
-	event           yaml_event_t
-	out             []byte
-	flow            bool
-	indent          int
-	doneInit        bool
-	optDropMergeTag bool
+	emitter           yaml_emitter_t
+	event             yaml_event_t
+	out               []byte
+	flow              bool
+	indent            int
+	array_indent      int
+	indent_root_array bool
+	doneInit          bool
+	optDropMergeTag   bool
 }
 
 func newEncoder() *encoder {
@@ -63,7 +65,12 @@ func (e *encoder) init() {
 	if e.indent == 0 {
 		e.indent = 4
 	}
+	if e.array_indent == 0 {
+		e.array_indent = e.indent
+	}
 	e.emitter.best_indent = e.indent
+	e.emitter.best_array_indent = e.array_indent
+	e.emitter.indent_root_array = e.indent_root_array
 	yaml_stream_start_event_initialize(&e.event, yaml_UTF8_ENCODING)
 	e.emit()
 	e.doneInit = true

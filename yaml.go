@@ -343,6 +343,10 @@ func (e *Encoder) SetPadLineComments(padLineComments int) {
 	yaml_emitter_set_pad_line_comments(&e.encoder.emitter, padLineComments)
 }
 
+func (e *Encoder) SetIndentMapInSlice(indentMapInSlice bool) {
+	yaml_emitter_set_indent_map_in_slice(&e.encoder.emitter, indentMapInSlice)
+}
+
 // Close closes the encoder by writing any remaining data.
 // It does not write a stream terminating string "...".
 func (e *Encoder) Close() (err error) {

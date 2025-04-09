@@ -245,6 +245,18 @@ func yaml_emitter_increase_indent(emitter *yaml_emitter_t, flow, indentless bool
 		} else {
 			// Everything else aligns to the chosen indentation.
 			emitter.indent = emitter.best_indent * ((emitter.indent + emitter.best_indent) / emitter.best_indent)
+
+			if emitter.indent_map_in_slice {
+				// this makes the behavior more like other yaml formatters, but tbh its probably best not to have this behavior
+				// it messes up pressing the tab button for indentation - makes you always have to go back and add spaces
+				if emitter.states[len(emitter.states)-1] == yaml_EMIT_BLOCK_MAPPING_KEY_STATE {
+					for i := 0; i < len(emitter.states); i++ {
+						if emitter.states[i] == yaml_EMIT_BLOCK_SEQUENCE_ITEM_STATE {
+							emitter.indent += 2
+						}
+					}
+				}
+			}
 		}
 	} else {
 		if emitter.states[len(emitter.states)-1] == yaml_EMIT_BLOCK_SEQUENCE_ITEM_STATE {

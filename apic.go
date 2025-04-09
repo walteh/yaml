@@ -214,6 +214,10 @@ func yaml_emitter_set_pad_line_comments(emitter *yaml_emitter_t, pad_line_commen
 	emitter.pad_line_comments = pad_line_comments
 }
 
+func yaml_emitter_set_indent_map_in_slice(emitter *yaml_emitter_t, indent_map_in_slice bool) {
+	emitter.indent_map_in_slice = indent_map_in_slice
+}
+
 ///*
 // * Destroy a token object.
 // */

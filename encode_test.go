@@ -46,6 +46,9 @@ var marshalTests = []struct {
 		&struct{}{},
 		"{}\n",
 	}, {
+		map[string]string{"v": "🛑"},
+		"v: 🛑\n",
+	}, {
 		map[string]string{"v": "hi"},
 		"v: hi\n",
 	}, {
@@ -112,13 +115,13 @@ var marshalTests = []struct {
 		map[string]interface{}{"v": ""},
 		"v: \"\"\n",
 	}, {
-		map[string][]string{"v": []string{"A", "B"}},
+		map[string][]string{"v": {"A", "B"}},
 		"v:\n    - A\n    - B\n",
 	}, {
-		map[string][]string{"v": []string{"A", "B\nC"}},
+		map[string][]string{"v": {"A", "B\nC"}},
 		"v:\n    - A\n    - |-\n      B\n      C\n",
 	}, {
-		map[string][]interface{}{"v": []interface{}{"A", 1, map[string][]int{"B": []int{2, 3}}}},
+		map[string][]interface{}{"v": {"A", 1, map[string][]int{"B": {2, 3}}}},
 		"v:\n    - A\n    - 1\n    - B:\n        - 2\n        - 3\n",
 	}, {
 		map[string]interface{}{"a": map[interface{}]interface{}{"b": "c"}},
@@ -593,6 +596,7 @@ var marshalerTests = []struct {
 	data  string
 	value interface{}
 }{
+	{"_: 🛑\n", "🛑"},
 	{"_:\n    hi: there\n", map[interface{}]interface{}{"hi": "there"}},
 	{"_:\n    - 1\n    - A\n", []interface{}{1, "A"}},
 	{"_: 10\n", 10},
@@ -654,6 +658,18 @@ func (s *S) TestSetIndent(c *C) {
 	err = enc.Close()
 	c.Assert(err, Equals, nil)
 	c.Assert(buf.String(), Equals, "a:\n        b:\n                c: d\n")
+}
+
+func (s *S) TestSetLineBreak(c *C) {
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetLineBreakStyle(yaml.LineBreakStyleCRLF)
+	testMap := map[string]interface{}{"a": nil, "b": nil, "c": nil}
+	err := enc.Encode(testMap)
+	c.Assert(err, Equals, nil)
+	err = enc.Close()
+	c.Assert(err, Equals, nil)
+	c.Assert(strings.Count(buf.String(), "\r\n"), Equals, len(testMap))
 }
 
 func (s *S) TestSortedOutput(c *C) {

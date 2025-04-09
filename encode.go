@@ -29,18 +29,22 @@ import (
 )
 
 type encoder struct {
-	emitter  yaml_emitter_t
-	event    yaml_event_t
-	out      []byte
-	flow     bool
-	indent   int
-	doneInit bool
+	emitter           yaml_emitter_t
+	event             yaml_event_t
+	out               []byte
+	flow              bool
+	indent            int
+	array_indent      int
+	indent_root_array bool
+	doneInit          bool
+	optDropMergeTag   bool
 }
 
 func newEncoder() *encoder {
 	e := &encoder{}
 	yaml_emitter_initialize(&e.emitter)
 	yaml_emitter_set_output_string(&e.emitter, &e.out)
+	yaml_emitter_set_pad_line_comments(&e.emitter, 1)
 	yaml_emitter_set_unicode(&e.emitter, true)
 	return e
 }
@@ -49,6 +53,7 @@ func newEncoderWithWriter(w io.Writer) *encoder {
 	e := &encoder{}
 	yaml_emitter_initialize(&e.emitter)
 	yaml_emitter_set_output_writer(&e.emitter, w)
+	yaml_emitter_set_pad_line_comments(&e.emitter, 1)
 	yaml_emitter_set_unicode(&e.emitter, true)
 	return e
 }
@@ -60,7 +65,12 @@ func (e *encoder) init() {
 	if e.indent == 0 {
 		e.indent = 4
 	}
+	if e.array_indent == 0 {
+		e.array_indent = e.indent
+	}
 	e.emitter.best_indent = e.indent
+	e.emitter.best_array_indent = e.array_indent
+	e.emitter.indent_root_array = e.indent_root_array
 	yaml_stream_start_event_initialize(&e.event, yaml_UTF8_ENCODING)
 	e.emit()
 	e.doneInit = true
@@ -469,6 +479,10 @@ func (e *encoder) node(node *Node, tail string) {
 				tag = ""
 			}
 		}
+	}
+
+	if tag == mergeTag && e.optDropMergeTag {
+		tag = ""
 	}
 
 	switch node.Kind {

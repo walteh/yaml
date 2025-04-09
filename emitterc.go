@@ -162,10 +162,9 @@ func yaml_emitter_emit(emitter *yaml_emitter_t, event *yaml_event_t) bool {
 // Check if we need to accumulate more events before emitting.
 //
 // We accumulate extra
-//  - 1 event for DOCUMENT-START
-//  - 2 events for SEQUENCE-START
-//  - 3 events for MAPPING-START
-//
+//   - 1 event for DOCUMENT-START
+//   - 2 events for SEQUENCE-START
+//   - 3 events for MAPPING-START
 func yaml_emitter_need_more_events(emitter *yaml_emitter_t) bool {
 	if emitter.events_head == len(emitter.events) {
 		return true
@@ -229,7 +228,9 @@ func yaml_emitter_append_tag_directive(emitter *yaml_emitter_t, value *yaml_tag_
 func yaml_emitter_increase_indent(emitter *yaml_emitter_t, flow, indentless bool) bool {
 	emitter.indents = append(emitter.indents, emitter.indent)
 	if emitter.indent < 0 {
-		if flow {
+		if emitter.indent_root_array && emitter.state == yaml_EMIT_BLOCK_SEQUENCE_FIRST_ITEM_STATE {
+			emitter.indent = emitter.best_array_indent
+		} else if flow {
 			emitter.indent = emitter.best_indent
 		} else {
 			emitter.indent = 0
@@ -237,11 +238,20 @@ func yaml_emitter_increase_indent(emitter *yaml_emitter_t, flow, indentless bool
 	} else if !indentless {
 		// [Go] This was changed so that indentations are more regular.
 		if emitter.states[len(emitter.states)-1] == yaml_EMIT_BLOCK_SEQUENCE_ITEM_STATE {
-			// The first indent inside a sequence will just skip the "- " indicator.
 			emitter.indent += 2
+		} else if emitter.state == yaml_EMIT_BLOCK_SEQUENCE_FIRST_ITEM_STATE {
+			// [Go] Arrays align to the chosen indentation.
+			emitter.indent = emitter.best_array_indent * ((emitter.indent + emitter.best_array_indent) / emitter.best_array_indent)
 		} else {
 			// Everything else aligns to the chosen indentation.
-			emitter.indent = emitter.best_indent*((emitter.indent+emitter.best_indent)/emitter.best_indent)
+			emitter.indent = emitter.best_indent * ((emitter.indent + emitter.best_indent) / emitter.best_indent)
+		}
+	} else {
+		if emitter.states[len(emitter.states)-1] == yaml_EMIT_BLOCK_SEQUENCE_ITEM_STATE {
+			// Currently, we assume that indentless can be true for only block sequences
+			// and this case is the first item of a nested indentless block sequence,
+			// which means the item must be indented more.
+			emitter.indent += 2
 		}
 	}
 	return true
@@ -384,7 +394,7 @@ func yaml_emitter_emit_document_start(emitter *yaml_emitter_t, event *yaml_event
 		}
 
 		implicit := event.implicit
-		if !first || emitter.canonical {
+		if emitter.explicit_document_start || !first || emitter.canonical {
 			implicit = false
 		}
 
@@ -432,6 +442,16 @@ func yaml_emitter_emit_document_start(emitter *yaml_emitter_t, event *yaml_event
 		if yaml_emitter_check_empty_document(emitter) {
 			implicit = false
 		}
+
+		// braydonk: This puts head comments above the document
+		// start token, rather than the previous behaviour which
+		// put them after the document start for some reason.
+		if len(emitter.head_comment) > 0 {
+			if !yaml_emitter_process_head_comment(emitter) {
+				return false
+			}
+		}
+
 		if !implicit {
 			if !yaml_emitter_write_indent(emitter) {
 				return false
@@ -446,14 +466,20 @@ func yaml_emitter_emit_document_start(emitter *yaml_emitter_t, event *yaml_event
 			}
 		}
 
-		if len(emitter.head_comment) > 0 {
-			if !yaml_emitter_process_head_comment(emitter) {
-				return false
+		// braydonk: Yes I know leaving commented out code in source control
+		// is cringe but if I am in a scenario where my fix breaks something
+		// unexpectedly and I gotta hotfix it back I need to make it easy to
+		// remember what the original setup was.
+		/*
+			if len(emitter.head_comment) > 0 {
+				if !yaml_emitter_process_head_comment(emitter) {
+					return false
+				}
+				if !put_break(emitter) {
+					return false
+				}
 			}
-			if !put_break(emitter) {
-				return false
-			}
-		}
+		*/
 
 		emitter.state = yaml_EMIT_DOCUMENT_CONTENT_STATE
 		return true
@@ -728,7 +754,7 @@ func yaml_emitter_emit_flow_mapping_value(emitter *yaml_emitter_t, event *yaml_e
 // Expect a block item node.
 func yaml_emitter_emit_block_sequence_item(emitter *yaml_emitter_t, event *yaml_event_t, first bool) bool {
 	if first {
-		if !yaml_emitter_increase_indent(emitter, false, false) {
+		if !yaml_emitter_increase_indent(emitter, false, emitter.indentless_block_sequence) {
 			return false
 		}
 	}
@@ -1149,8 +1175,11 @@ func yaml_emitter_process_line_comment(emitter *yaml_emitter_t) bool {
 		return true
 	}
 	if !emitter.whitespace {
-		if !put(emitter, ' ') {
-			return false
+		// Insert as many spaces before the line comment as requested.
+		for i := 0; i < emitter.pad_line_comments; i++ {
+			if !put(emitter, ' ') {
+				return false
+			}
 		}
 	}
 	if !yaml_emitter_write_comment(emitter, emitter.line_comment) {
@@ -1947,7 +1976,7 @@ func yaml_emitter_write_folded_scalar(emitter *yaml_emitter_t, value []byte) boo
 				for is_break(value, k) {
 					k += width(value[k])
 				}
-				if !is_blankz(value, k) {
+				if !emitter.assume_folded_as_literal && !is_blankz(value, k) {
 					if !put_break(emitter) {
 						return false
 					}

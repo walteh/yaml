@@ -438,7 +438,9 @@ type yaml_document_t struct {
 // The number of written bytes should be set to the size_read variable.
 //
 // [in,out]   data        A pointer to an application data specified by
-//                        yaml_parser_set_input().
+//
+//	yaml_parser_set_input().
+//
 // [out]      buffer      The buffer to write the data from the source.
 // [in]       size        The size of the buffer.
 // [out]      size_read   The actual number of bytes read from the source.
@@ -554,6 +556,10 @@ type yaml_alias_data_t struct {
 // yaml_parser_ family of functions.
 type yaml_parser_t struct {
 
+	// Option
+
+	scan_folded_as_literal bool
+
 	// Error handling
 
 	error yaml_error_type_t // Error type.
@@ -639,7 +645,6 @@ type yaml_parser_t struct {
 }
 
 type yaml_comment_t struct {
-
 	scan_mark  yaml_mark_t // Position where scanning for comments started
 	token_mark yaml_mark_t // Position after which tokens will be associated with this comment
 	start_mark yaml_mark_t // Position of '#' comment mark
@@ -659,13 +664,14 @@ type yaml_comment_t struct {
 // @a buffer to the output.
 //
 // @param[in,out]   data        A pointer to an application data specified by
-//                              yaml_emitter_set_output().
+//
+//	yaml_emitter_set_output().
+//
 // @param[in]       buffer      The buffer with bytes to be written.
 // @param[in]       size        The size of the buffer.
 //
 // @returns On success, the handler should return @c 1.  If the handler failed,
 // the returned value should be @c 0.
-//
 type yaml_write_handler_t func(emitter *yaml_emitter_t, buffer []byte) error
 
 type yaml_emitter_state_t int
@@ -724,11 +730,17 @@ type yaml_emitter_t struct {
 
 	// Emitter stuff
 
-	canonical   bool         // If the output is in the canonical style?
-	best_indent int          // The number of indentation spaces.
-	best_width  int          // The preferred width of the output lines.
-	unicode     bool         // Allow unescaped non-ASCII characters?
-	line_break  yaml_break_t // The preferred line break.
+	canonical                 bool         // If the output is in the canonical style?
+	best_width                int          // The preferred width of the output lines.
+	best_indent               int          // The number of indentation spaces.
+	best_array_indent         int          // The number of indentation spaces to use for arrays
+	indent_root_array         bool         // Indent a root-level array as if it were a child?
+	indentless_block_sequence bool         // Do not indent block sequences
+	unicode                   bool         // Allow unescaped non-ASCII characters?
+	line_break                yaml_break_t // The preferred line break.
+	explicit_document_start   bool         // Force an explicit document start
+	assume_folded_as_literal  bool         // Assume blocks were scanned as literals
+	pad_line_comments         int          // The number of spaces to insert before line comments.
 
 	state  yaml_emitter_state_t   // The current emitter state.
 	states []yaml_emitter_state_t // The stack of states.

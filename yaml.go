@@ -17,8 +17,7 @@
 //
 // Source code and other details for the project are available at GitHub:
 //
-//   https://github.com/go-yaml/yaml
-//
+//	https://github.com/go-yaml/yaml
 package yaml
 
 import (
@@ -75,16 +74,15 @@ type Marshaler interface {
 //
 // For example:
 //
-//     type T struct {
-//         F int `yaml:"a,omitempty"`
-//         B int
-//     }
-//     var t T
-//     yaml.Unmarshal([]byte("a: 1\nb: 2"), &t)
+//	type T struct {
+//	    F int `yaml:"a,omitempty"`
+//	    B int
+//	}
+//	var t T
+//	yaml.Unmarshal([]byte("a: 1\nb: 2"), &t)
 //
 // See the documentation of Marshal for the format of tags and a list of
 // supported tag options.
-//
 func Unmarshal(in []byte, out interface{}) (err error) {
 	return unmarshal(in, out, false)
 }
@@ -109,6 +107,10 @@ func NewDecoder(r io.Reader) *Decoder {
 // exist as fields in the struct being decoded into.
 func (dec *Decoder) KnownFields(enable bool) {
 	dec.knownFields = enable
+}
+
+func (dec *Decoder) SetScanBlockScalarAsLiteral(scanLiteral bool) {
+	yaml_parser_set_scan_folded_as_literal(&dec.parser.parser, scanLiteral)
 }
 
 // Decode reads the next YAML-encoded value from its input
@@ -185,36 +187,35 @@ func unmarshal(in []byte, out interface{}, strict bool) (err error) {
 //
 // The field tag format accepted is:
 //
-//     `(...) yaml:"[<key>][,<flag1>[,<flag2>]]" (...)`
+//	`(...) yaml:"[<key>][,<flag1>[,<flag2>]]" (...)`
 //
 // The following flags are currently supported:
 //
-//     omitempty    Only include the field if it's not set to the zero
-//                  value for the type or to empty slices or maps.
-//                  Zero valued structs will be omitted if all their public
-//                  fields are zero, unless they implement an IsZero
-//                  method (see the IsZeroer interface type), in which
-//                  case the field will be excluded if IsZero returns true.
+//	omitempty    Only include the field if it's not set to the zero
+//	             value for the type or to empty slices or maps.
+//	             Zero valued structs will be omitted if all their public
+//	             fields are zero, unless they implement an IsZero
+//	             method (see the IsZeroer interface type), in which
+//	             case the field will be excluded if IsZero returns true.
 //
-//     flow         Marshal using a flow style (useful for structs,
-//                  sequences and maps).
+//	flow         Marshal using a flow style (useful for structs,
+//	             sequences and maps).
 //
-//     inline       Inline the field, which must be a struct or a map,
-//                  causing all of its fields or keys to be processed as if
-//                  they were part of the outer struct. For maps, keys must
-//                  not conflict with the yaml keys of other struct fields.
+//	inline       Inline the field, which must be a struct or a map,
+//	             causing all of its fields or keys to be processed as if
+//	             they were part of the outer struct. For maps, keys must
+//	             not conflict with the yaml keys of other struct fields.
 //
 // In addition, if the key is "-", the field is ignored.
 //
 // For example:
 //
-//     type T struct {
-//         F int `yaml:"a,omitempty"`
-//         B int
-//     }
-//     yaml.Marshal(&T{B: 2}) // Returns "b: 2\n"
-//     yaml.Marshal(&T{F: 1}} // Returns "a: 1\nb: 0\n"
-//
+//	type T struct {
+//	    F int `yaml:"a,omitempty"`
+//	    B int
+//	}
+//	yaml.Marshal(&T{B: 2}) // Returns "b: 2\n"
+//	yaml.Marshal(&T{F: 1}} // Returns "a: 1\nb: 0\n"
 func Marshal(in interface{}) (out []byte, err error) {
 	defer handleErr(&err)
 	e := newEncoder()
@@ -276,6 +277,70 @@ func (e *Encoder) SetIndent(spaces int) {
 		panic("yaml: cannot indent to a negative number of spaces")
 	}
 	e.encoder.indent = spaces
+}
+
+// SetArrayIndent changes the used indentation specifically for
+// block sequences.
+func (e *Encoder) SetArrayIndent(spaces int) {
+	if spaces < 0 {
+		panic("yaml: cannot indent to a negative number of spaces")
+	}
+	e.encoder.array_indent = spaces
+}
+
+// SetIndentRootArray changes whether arrays at the root of the document
+// should be indented as if they were children.
+func (e *Encoder) SetIndentRootArray(indent_root_array bool) {
+	e.encoder.indent_root_array = indent_root_array
+}
+
+// SetWidth sets the intended line length.
+func (e *Encoder) SetWidth(width int) {
+	yaml_emitter_set_width(&e.encoder.emitter, width)
+}
+
+type LineBreakStyle int
+
+const (
+	LineBreakStyleLF LineBreakStyle = 1 << iota
+	LineBreakStyleCRLF
+)
+
+// SetLineBreakStyle changes the line endings used when encoding.
+func (e *Encoder) SetLineBreakStyle(style LineBreakStyle) {
+	switch style {
+	case LineBreakStyleLF:
+		yaml_emitter_set_break(&e.encoder.emitter, yaml_LN_BREAK)
+	case LineBreakStyleCRLF:
+		yaml_emitter_set_break(&e.encoder.emitter, yaml_CRLN_BREAK)
+	}
+}
+
+// SetExplicitDocumentStart forces the document start token
+// (---) to always be written.
+func (e *Encoder) SetExplicitDocumentStart(documentStart bool) {
+	yaml_emitter_set_explicit_document_start(&e.encoder.emitter, documentStart)
+}
+
+// SetAssumeBlockAsLiteral is a workaround to allow block literals
+// to retain their scanned form in the resulting marshalled document.
+func (e *Encoder) SetAssumeBlockAsLiteral(assumeLiteralBlock bool) {
+	yaml_emitter_set_assume_folded_as_literal(&e.encoder.emitter, assumeLiteralBlock)
+}
+
+// SetIndentlessBlockSequence forces block sequence items not to be indented.
+func (e *Encoder) SetIndentlessBlockSequence(indentlessBlockSequence bool) {
+	yaml_emitter_set_indentless_block_sequence(&e.encoder.emitter, indentlessBlockSequence)
+}
+
+// SetDropMergeTag sets optDropMergeTag on the encoder.
+func (e *Encoder) SetDropMergeTag(dropMergeTag bool) {
+	e.encoder.optDropMergeTag = dropMergeTag
+}
+
+// SetPadLineComments changes the number of padding spaces before line comments.
+func (e *Encoder) SetPadLineComments(padLineComments int) {
+	yaml_emitter_set_pad_line_comments(&e.encoder.emitter, padLineComments)
 }
 
 // Close closes the encoder by writing any remaining data.
@@ -358,22 +423,21 @@ const (
 //
 // For example:
 //
-//     var person struct {
-//             Name    string
-//             Address yaml.Node
-//     }
-//     err := yaml.Unmarshal(data, &person)
-// 
+//	var person struct {
+//	        Name    string
+//	        Address yaml.Node
+//	}
+//	err := yaml.Unmarshal(data, &person)
+//
 // Or by itself:
 //
-//     var person Node
-//     err := yaml.Unmarshal(data, &person)
-//
+//	var person Node
+//	err := yaml.Unmarshal(data, &person)
 type Node struct {
 	// Kind defines whether the node is a document, a mapping, a sequence,
 	// a scalar value, or an alias to another node. The specific data type of
 	// scalar nodes may be obtained via the ShortTag and LongTag methods.
-	Kind  Kind
+	Kind Kind
 
 	// Style allows customizing the apperance of the node in the tree.
 	Style Style
@@ -420,7 +484,6 @@ func (n *Node) IsZero() bool {
 	return n.Kind == 0 && n.Style == 0 && n.Tag == "" && n.Value == "" && n.Anchor == "" && n.Alias == nil && n.Content == nil &&
 		n.HeadComment == "" && n.LineComment == "" && n.FootComment == "" && n.Line == 0 && n.Column == 0
 }
-
 
 // LongTag returns the long form of the tag that indicates the data type for
 // the node. If the Tag field isn't explicitly defined, one will be computed

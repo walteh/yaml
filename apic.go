@@ -1,17 +1,17 @@
-// 
+//
 // Copyright (c) 2011-2019 Canonical Ltd
 // Copyright (c) 2006-2010 Kirill Simonov
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy of
 // this software and associated documentation files (the "Software"), to deal in
 // the Software without restriction, including without limitation the rights to
 // use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
 // of the Software, and to permit persons to whom the Software is furnished to do
 // so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -72,6 +72,10 @@ func yaml_string_read_handler(parser *yaml_parser_t, buffer []byte) (n int, err 
 // Reader read handler.
 func yaml_reader_read_handler(parser *yaml_parser_t, buffer []byte) (n int, err error) {
 	return parser.input_reader.Read(buffer)
+}
+
+func yaml_parser_set_scan_folded_as_literal(parser *yaml_parser_t, scan_literal bool) {
+	parser.scan_folded_as_literal = scan_literal
 }
 
 // Set a string input.
@@ -185,6 +189,29 @@ func yaml_emitter_set_unicode(emitter *yaml_emitter_t, unicode bool) {
 // Set the preferred line break character.
 func yaml_emitter_set_break(emitter *yaml_emitter_t, line_break yaml_break_t) {
 	emitter.line_break = line_break
+}
+
+// Set explicit document start.
+func yaml_emitter_set_explicit_document_start(emitter *yaml_emitter_t, document_start bool) {
+	emitter.explicit_document_start = document_start
+}
+
+// Set assume folded as literal.
+func yaml_emitter_set_assume_folded_as_literal(emitter *yaml_emitter_t, folded_as_literal bool) {
+	emitter.assume_folded_as_literal = folded_as_literal
+}
+
+// Set indentless block sequence.
+func yaml_emitter_set_indentless_block_sequence(emitter *yaml_emitter_t, indentless_block_sequence bool) {
+	emitter.indentless_block_sequence = indentless_block_sequence
+}
+
+// Set pad line comments.
+func yaml_emitter_set_pad_line_comments(emitter *yaml_emitter_t, pad_line_comments int) {
+	if pad_line_comments < 0 {
+		pad_line_comments = 1
+	}
+	emitter.pad_line_comments = pad_line_comments
 }
 
 ///*
